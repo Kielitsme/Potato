@@ -1410,16 +1410,24 @@ fun GameScreen(
         var cursorY by remember { mutableFloatStateOf(0f) }
         var isMousePressed by remember { mutableStateOf(false) }
 
-        LaunchedEffect(screenWidth, screenHeight) {
-            if (cursorX == 0f && screenWidth > 0f) {
-                cursorX = screenWidth / 2f
-                cursorY = screenHeight / 2f
-                val winW = CallbackBridge.windowWidth
-                val winH = CallbackBridge.windowHeight
-                val targetX = if (screenWidth > 0 && winW > 0) cursorX * (winW.toFloat() / screenWidth) else cursorX
-                val targetY = if (screenHeight > 0 && winH > 0) cursorY * (winH.toFloat() / screenHeight) else cursorY
-                CallbackBridge.sendCursorPos(targetX, targetY)
+        var previousCursorMode by remember { mutableIntStateOf(gameCursorMode) }
+
+        // Otomatis kembalikan kursor ke tengah saat baru mulai & saat buka inventory/chest (setelah kursor hilang in-game)
+        LaunchedEffect(gameCursorMode, screenWidth, screenHeight) {
+            if (screenWidth > 0f && screenHeight > 0f) {
+                val isInitial = (cursorX == 0f && cursorY == 0f)
+                val isReturningToMenu = (gameCursorMode == CURSOR_ENABLED && previousCursorMode == CURSOR_DISABLED)
+                if (isInitial || isReturningToMenu) {
+                    cursorX = screenWidth / 2f
+                    cursorY = screenHeight / 2f
+                    val winW = CallbackBridge.windowWidth
+                    val winH = CallbackBridge.windowHeight
+                    val targetX = if (screenWidth > 0 && winW > 0) cursorX * (winW.toFloat() / screenWidth) else cursorX
+                    val targetY = if (screenHeight > 0 && winH > 0) cursorY * (winH.toFloat() / screenHeight) else cursorY
+                    CallbackBridge.sendCursorPos(targetX, targetY)
+                }
             }
+            previousCursorMode = gameCursorMode
         }
 
         // 1. OpenGL/Vulkan Surface View (Pure rendering surface)

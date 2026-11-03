@@ -195,9 +195,15 @@ public class CallbackBridge {
     @Keep
     public static void onGrabStateChanged(final boolean grabbing) {
         Log.i("NUX_INPUT", "Grab callback received: " + grabbing);
+        boolean wasGrabbing = isGrabbing;
         isGrabbing = grabbing;
         deltaX = 0f;
         deltaY = 0f;
+        if (wasGrabbing && !grabbing) {
+            float midX = (windowWidth > 0 ? windowWidth : 1280) / 2f;
+            float midY = (windowHeight > 0 ? windowHeight : 720) / 2f;
+            sendCursorPos(midX, midY);
+        }
         postFrameCallbackDelayed((time) -> {
             if (isGrabbing != grabbing) return;
             Log.i("NUX_INPUT", "Grab changed : " + grabbing);

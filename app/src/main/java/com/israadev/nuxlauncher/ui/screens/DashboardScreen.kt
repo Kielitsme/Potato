@@ -79,6 +79,7 @@ import com.israadev.nuxlauncher.ui.theme.LocalNuxScale
 import com.israadev.nuxlauncher.core.lang.tr
 import com.israadev.nuxlauncher.core.lang.trStr
 import kotlinx.coroutines.launch
+import com.israadev.nuxlauncher.core.social.NuxSocialManager
 
 @Composable
 fun DashboardScreen() {
@@ -122,6 +123,13 @@ fun DashboardScreen() {
 
     // Auto check update and announcement on launch
     LaunchedEffect(Unit) {
+        // 0. Sinkronisasi status social & friends di background
+        launch {
+            try {
+                NuxSocialManager.startSync()
+            } catch (_: Exception) {}
+        }
+
         // 1. Ambil announcement secara asynchronous di background
         launch {
             try {

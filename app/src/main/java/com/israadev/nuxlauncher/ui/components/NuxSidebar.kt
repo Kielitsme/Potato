@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +43,7 @@ data class NuxNavItem(
 
 val NUX_NAV_ITEMS = listOf(
     NuxNavItem("home", Icons.Outlined.Home, "sidebar.home"),
+    NuxNavItem("friends", Icons.Outlined.Group, "sidebar.friends"),
     NuxNavItem("accounts", Icons.Outlined.Person, "sidebar.accounts"),
     NuxNavItem("mods", Icons.Outlined.Extension, "sidebar.mods"),
     NuxNavItem("ai", Icons.Outlined.Psychology, "sidebar.ai"),
@@ -98,6 +100,10 @@ fun NuxSidebar(
         Spacer(modifier = Modifier.height((6.dp).resp()))
 
         // CENTER: NAV ITEMS (Icon + Label)
+        val friendsList by NuxSocialManager.friends.collectAsState()
+        val totalSocialUnread = remember(friendsList) {
+            friendsList.sumOf { it.unreadCount } + friendsList.count { it.isPendingReceived }
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -132,6 +138,17 @@ fun NuxSidebar(
                             tint = if (isSelected) Color(0xFF09090B) else Color(0xFFA1A1AA),
                             modifier = Modifier.size((17.dp).resp())
                         )
+
+                        if (item.id == "friends" && totalSocialUnread > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(end = (5.dp).resp(), top = (3.dp).resp())
+                                    .size((7.dp).resp())
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFEF4444))
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height((3.dp).resp()))
