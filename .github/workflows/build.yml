@@ -47,12 +47,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Pasang platform Android 37 (jika belum ada)
+      # Runner GitHub sudah membawa Android SDK. Cukup terima lisensi dan pasang platform 37.
+      # (action android-actions/setup-android dibuang: gagal karena paket 'tools' sudah tidak ada)
+      - name: Terima lisensi SDK & pasang platform Android 37
         shell: bash
-        run: yes | sdkmanager "platforms;android-37" || true
+        run: |
+          SDKM="${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-37" || true
 
       - name: Setup Gradle (cache)
         uses: gradle/actions/setup-gradle@v4
