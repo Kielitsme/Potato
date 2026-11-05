@@ -1,0 +1,124 @@
+name: Build LowSpec Launcher
+
+# Dijalankan MANUAL dari tab Actions (tombol "Run workflow"), tidak otomatis tiap push.
+on:
+  workflow_dispatch:
+    inputs:
+      build_release:
+        description: "Bangun juga APK release (R8, lebih kecil & cepat)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write   # dibutuhkan untuk push branch "lowspec" dan membuat Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Hanya berjalan jika file patch ada di root repo (pertama kali). Hasilnya di-commit
+      # ke branch "lowspec" supaya perubahan tersimpan permanen di repo-mu.
+      - name: Terapkan patch LowSpec
+        shell: bash
+        run: |
+          if [ -f lowspec-launcher.patch ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git apply --index --whitespace=nowarn lowspec-launcher.patch
+            sh delete-binaries.sh
+            git rm -q -f lowspec-launcher.patch delete-binaries.sh
+            git commit -q -m "LowSpec Launcher: hapus server/premium/login/AI, renderer ringan, tuning low-end"
+            git push --force origin HEAD:refs/heads/lowspec
+            echo "### Patch diterapkan dan di-push ke branch \`lowspec\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Tidak ada lowspec-launcher.patch, build kode apa adanya."
+          fi
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Pasang platform Android 37 (jika belum ada)
+        shell: bash
+        run: yes | sdkmanager "platforms;android-37" || true
+
+      - name: Setup Gradle (cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK debug
+        id: debug
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build-debug.log
+
+      - name: Build APK release (R8)
+        id: release
+        if: ${{ inputs.build_release }}
+        continue-on-error: true
+        shell: bash
+        run: ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build-release.log
+
+      # Jika gagal: tampilkan error-nya di halaman ringkasan run supaya mudah disalin dari HP.
+      - name: Ringkasan error
+        if: ${{ always() && (steps.debug.outcome == 'failure' || steps.release.outcome == 'failure') }}
+        shell: bash
+        run: |
+          {
+            echo "### Error build (salin bagian ini dan kirim ke Claude)"
+            for f in build-debug.log build-release.log; do
+              [ -f "$f" ] || continue
+              echo "#### $f"
+              echo '```'
+              grep -hE "^e: |error: |What went wrong|Execution failed|Missing class|R8:" -A2 "$f" | head -60 || true
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload log build
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build-*.log
+          if-no-files-found: ignore
+
+      - name: Upload APK debug
+        if: ${{ steps.debug.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LowSpec-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload APK release
+        if: ${{ steps.release.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LowSpec-release-apk
+          path: app/build/outputs/apk/release/*.apk
+
+      # Release memungkinkan APK diunduh langsung (tanpa zip) dari halaman Releases di HP.
+      - name: Buat GitHub Release
+        if: ${{ steps.debug.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          FILES=$(ls app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk 2>/dev/null || true)
+          [ -n "$FILES" ] || exit 0
+          gh release create "lowspec-build-${{ github.run_number }}" $FILES \
+            --title "LowSpec Launcher build #${{ github.run_number }}" \
+            --notes "Debug = pasti jalan seperti biasa. Release = R8 (lebih kecil/cepat, belum teruji). Ditandatangani dengan debug key." \
+            --prerelease
