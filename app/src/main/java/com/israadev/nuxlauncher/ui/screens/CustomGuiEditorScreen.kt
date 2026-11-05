@@ -151,8 +151,6 @@ fun CustomGuiEditorScreen(
                     "FPS" -> Color(0x800A0E17)
                     "HIDE_GUI" -> Color(0x730A0E17)
                     "CLOSE" -> Color(0x80EF4444)
-                    "RECORD" -> Color(0xFFF59E0B).copy(alpha = 0.35f)
-                    "RECORD" -> Color(0x730A0E17)
                     "KEYBOARD" -> Color(0x730A0E17)
                     else -> Color(0x730A0E17)
                 }
@@ -723,7 +721,6 @@ fun CustomGuiEditorScreen(
                                         "KEYBOARD" -> "Toggle On-Screen Keyboard"
                                         "HIDE_GUI" -> "Hide/Show GUI"
                                         "CLOSE" -> "Quit Game"
-                                        "RECORD" -> "Screen Recorder [Premium]"
                                         else -> "Launcher System Action"
                                     }
                                     Text(actionDesc, color = Color(0xFF81C784), fontWeight = FontWeight.Bold, fontSize = 11.sp)

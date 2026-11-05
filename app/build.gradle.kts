@@ -13,28 +13,18 @@ if (localPropertiesFile.exists()) {
         localProperties.load(stream)
     }
 }
-val rawServerUrl: String = localProperties.getProperty("nux.server.url") ?: ""
-val rawServerApiKey: String = localProperties.getProperty("nux.server.api.key") ?: ""
-val rawAiApiKey: String = localProperties.getProperty("nux.ai.api.key") ?: ""
-val rawAiApiKey2: String = localProperties.getProperty("nux.ai.api.key2") ?: ""
-val rawAiApiKey3: String = localProperties.getProperty("nux.ai.api.key3") ?: ""
 
 android {
     namespace = "com.israadev.nuxlauncher"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.israadev.nuxlauncher"
+        applicationId = "io.github.kielitsme.lowspec"
         minSdk = 26
         targetSdk = 34
         versionCode = 17
         versionName = "1.1.6"
 
-        buildConfigField("String", "SERVER_BASE_URL", "\"$rawServerUrl\"")
-        buildConfigField("String", "SERVER_API_KEY", "\"$rawServerApiKey\"")
-        buildConfigField("String", "DEFAULT_AI_API_KEY", "\"$rawAiApiKey\"")
-        buildConfigField("String", "DEFAULT_AI_API_KEY_2", "\"$rawAiApiKey2\"")
-        buildConfigField("String", "DEFAULT_AI_API_KEY_3", "\"$rawAiApiKey3\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -49,7 +39,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: membuang kode/resource tak terpakai (terutama material-icons-extended yang sangat besar)
+            // -> APK lebih kecil, startup lebih cepat, RAM lebih hemat. Aturan keep ada di proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -68,7 +61,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
+        buildConfig = false
     }
 
     packaging {
@@ -97,7 +90,6 @@ dependencies {
     implementation(libs.commons.compress)
     implementation(libs.xz)
     implementation(libs.bytehook)
-    implementation("androidx.webkit:webkit:1.12.1")
 
     debugImplementation(libs.androidx.ui.tooling)
 }

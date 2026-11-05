@@ -220,11 +220,9 @@ object GameLauncher {
             putExtra(GameActivity.EXTRA_RUNTIME_HOME, runtimeHome.absolutePath)
             putExtra(GameActivity.EXTRA_LWJGL_NATIVES_DIR, lwjglNativesDir.absolutePath)
             putExtra(GameActivity.EXTRA_USE_WRAPPER, useWrapper)
-            putExtra(GameActivity.EXTRA_LAUNCHER_UID, com.israadev.nuxlauncher.core.account.AccountManager.launcherUser.value?.uid ?: "")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        com.israadev.nuxlauncher.core.social.NuxSocialManager.setInGame(true)
         context.startActivity(intent)
     }
 }

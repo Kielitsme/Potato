@@ -60,13 +60,6 @@ private val LIBRARIES = listOf(
         url = "https://github.com/PojavLauncherTeam/PojavLauncher"
     ),
     OpenSourceLibrary(
-        name = "MobileGlues",
-        copyright = "Copyright © 2023-2026 MobileGlues Team",
-        license = "LGPL-2.1 License",
-        role = "Modern OpenGL 4.0 to OpenGL ES 3.2 translation layer for Minecraft 1.17+",
-        url = "https://github.com/FCL-Team/MobileGlues"
-    ),
-    OpenSourceLibrary(
         name = "LWJGL - Lightweight Java Game Library",
         copyright = "Copyright © 2012-present LWJGL All rights reserved",
         license = "BSD 3-Clause License",
@@ -81,18 +74,18 @@ private val LIBRARIES = listOf(
         url = "https://github.com/libsdl-org/SDL"
     ),
     OpenSourceLibrary(
-        name = "Mesa 3D (Zink / Turnip / VirGL)",
-        copyright = "Copyright © The Mesa Authors",
-        license = "MIT License",
-        role = "Vulkan-to-OpenGL translation & mobile GPU acceleration drivers",
-        url = "https://mesa3d.org/"
-    ),
-    OpenSourceLibrary(
         name = "ANGLE",
         copyright = "Copyright © 2018 The ANGLE Project Authors",
         license = "BSD 3-Clause License",
         role = "OpenGL ES translation engine powered by Vulkan backend",
         url = "http://angleproject.org/"
+    ),
+    OpenSourceLibrary(
+        name = "GL4ES / NG-GL4ES",
+        copyright = "Copyright (c) ptitSeb & contributors; NG-GL4ES fork by BZLZHH",
+        license = "MIT License",
+        role = "Wrapper OpenGL ke OpenGL ES (renderer GL4ES dan Krypton)",
+        url = "https://github.com/ptitSeb/gl4es"
     ),
     OpenSourceLibrary(
         name = "ByteHook",
@@ -109,13 +102,6 @@ private val LIBRARIES = listOf(
         url = "https://developer.android.com/jetpack/compose"
     ),
     OpenSourceLibrary(
-        name = "LiveKit WebRTC",
-        copyright = "Copyright © 2022-2026 LiveKit, Inc.",
-        license = "Apache 2.0",
-        role = "Infrastruktur audio real-time dan voice room mabar",
-        url = "https://livekit.io"
-    ),
-    OpenSourceLibrary(
         name = "Modrinth API",
         copyright = "Copyright © Rinth, Inc. & Community",
         license = "Open API / AGPL",
@@ -128,13 +114,6 @@ private val LIBRARIES = listOf(
         license = "LGPL-2.1 License",
         role = "Editor teks dan log penampil performa tinggi",
         url = "https://github.com/Rosemoe/sora-editor"
-    ),
-    OpenSourceLibrary(
-        name = "skinview3d",
-        copyright = "Copyright © Kent Rasmussen & contributors",
-        license = "MIT License",
-        role = "Interactive 3D WebGL skin & cape viewer for Minecraft",
-        url = "https://github.com/bs-community/skinview3d"
     ),
     OpenSourceLibrary(
         name = "OkHttp & Okio",
@@ -338,7 +317,7 @@ fun NuxAboutDialog(
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "NUX Launcher is an Unofficial Modified Version built and adapted based on Zalith Launcher 2 and PojavLauncher. This program is NOT an official application from Zalith Launcher Team or Mojang Studios.",
+                                        text = "LowSpec Launcher is an unofficial modified fork of NUX Launcher, which is itself built on Zalith Launcher 2 and PojavLauncher. This program is NOT an official application from NUX, the Zalith Launcher Team or Mojang Studios.",
                                         color = Color(0xFFE4E4E7),
                                         fontSize = 8.5.sp,
                                         lineHeight = 12.5.sp

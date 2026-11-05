@@ -28,7 +28,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.viewinterop.AndroidView
 import android.graphics.Bitmap
 import com.israadev.nuxlauncher.core.skin.SkinUtils
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -47,8 +46,6 @@ import com.israadev.nuxlauncher.core.account.microsoft.MicrosoftDeviceCode
 import com.israadev.nuxlauncher.core.models.UserAccount
 import com.israadev.nuxlauncher.ui.components.*
 import com.israadev.nuxlauncher.ui.dialogs.NuxMicrosoftAuthDialog
-import com.israadev.nuxlauncher.ui.dialogs.NuxWardrobeDialog
-import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
 import com.israadev.nuxlauncher.ui.theme.resp
@@ -75,23 +72,9 @@ fun AccountsScreen(
 
     val accounts by AccountManager.accounts.collectAsState()
     val currentAccount by AccountManager.currentAccount.collectAsState()
-    val launcherUser by AccountManager.launcherUser.collectAsState()
 
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var accountToDelete by remember { mutableStateOf<UserAccount?>(null) }
-    var accountForWardrobe by remember { mutableStateOf<UserAccount?>(null) }
-    var showPremiumDialog by remember { mutableStateOf(false) }
-    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
-
-    // 3D Player Model Preview (Interactive viewport like Zalith and Windows)
-    val leftPlayerSkin = remember { PlayerSkin(context) }
-    var leftPageFinished by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            leftPlayerSkin.destroy()
-        }
-    }
 
     // Active Account Signature Colors
     val activeType = currentAccount?.safeAccountType ?: "offline"
@@ -167,12 +150,7 @@ fun AccountsScreen(
                     .background(NuxColors.ForestGreen.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
                     .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
                     .clickable {
-                        if (accounts.size >= 2 && launcherUser?.isActivated != true) {
-                            premiumInitialPrompt = "Free users are limited to 2 saved accounts. Upgrade to NUX Premium to save and switch unlimited accounts!"
-                            showPremiumDialog = true
-                        } else {
-                            showAddAccountDialog = true
-                        }
+                        showAddAccountDialog = true
                     }
                     .padding(horizontal = 9.dp),
                 contentAlignment = Alignment.Center
@@ -259,7 +237,8 @@ fun AccountsScreen(
                             }
                         }
 
-                        // 3D Interactive Player Character Showcase (Large full-body showcase)
+                        // Flat 2D avatar (head texture only). Replaces the 3D WebView/WebGL viewer,
+                        // which was a constant GPU + RAM cost on low-end devices.
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -267,30 +246,12 @@ fun AccountsScreen(
                                 .padding(vertical = 2.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = { ctx ->
-                                    leftPlayerSkin.loadWebView(ctx) {
-                                        leftPageFinished = true
-                                        leftPlayerSkin.loadAccount(acc)
-                                        leftPlayerSkin.startAnim("NewIdle", 0.7f)
-                                        leftPlayerSkin.setAutoRotate(true, 0.6f)
-                                        leftPlayerSkin.setCamera(20, 8, 44)
-                                    }
-                                },
-                                update = {
-                                    if (leftPageFinished) {
-                                        leftPlayerSkin.loadAccount(acc)
-                                    }
-                                }
+                            NuxAccountAvatar(
+                                account = acc,
+                                modifier = Modifier
+                                    .size(96.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                             )
-                        }
-
-                        LaunchedEffect(acc.id, acc.customSkinPath, acc.customCapePath, acc.skinModel, leftPageFinished) {
-                            if (leftPageFinished) {
-                                val updated = SkinUtils.ensureSkinAndCapeCached(context, acc)
-                                leftPlayerSkin.loadAccount(updated)
-                            }
                         }
 
                         // Username & Subtitle (Cleanly placed at the bottom, zero clutter)
@@ -438,10 +399,6 @@ fun AccountsScreen(
                                         )
                                         .clickable {
                                             AccountManager.selectAccount(acc)
-                                            coroutineScope.launch {
-                                                val updated = SkinUtils.ensureSkinAndCapeCached(context, acc)
-                                                leftPlayerSkin.loadAccount(updated)
-                                            }
                                         }
                                         .padding(horizontal = 11.dp, vertical = 7.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -533,10 +490,6 @@ fun AccountsScreen(
                                                     .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
                                                     .clickable {
                                                         AccountManager.selectAccount(acc)
-                                                        coroutineScope.launch {
-                                                            val updated = SkinUtils.ensureSkinAndCapeCached(context, acc)
-                                                            leftPlayerSkin.loadAccount(updated)
-                                                        }
                                                     }
                                                     .padding(horizontal = 7.dp),
                                                 contentAlignment = Alignment.Center
@@ -548,33 +501,6 @@ fun AccountsScreen(
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
-                                        }
-
-                                        // Wardrobe icon (Hanya untuk Microsoft & Akun Offline / Local, persis seperti ZalithLauncher)
-                                        val isSkinChangeAllowed = acc.safeAccountType == "microsoft" || acc.safeAccountType == "offline"
-                                        Box(
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .clickable {
-                                                    if (isSkinChangeAllowed) {
-                                                        accountForWardrobe = acc
-                                                    } else {
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Skins & Capes for Ely.by accounts are managed directly at https://account.ely.by",
-                                                            Toast.LENGTH_LONG
-                                                        ).show()
-                                                    }
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Outlined.Checkroom,
-                                                contentDescription = tr("accounts.btn_wardrobe"),
-                                                tint = if (isSkinChangeAllowed) Color(0xFF71717A) else Color(0xFF3F3F46),
-                                                modifier = Modifier.size(14.dp)
-                                            )
                                         }
 
                                         // Delete icon
@@ -600,20 +526,6 @@ fun AccountsScreen(
                 }
             }
         }
-    }
-
-    // =============================================================
-    // MODAL DIALOG: WARDROBE / CUSTOM SKIN & CAPE
-    // =============================================================
-    if (accountForWardrobe != null) {
-        NuxWardrobeDialog(
-            account = accountForWardrobe!!,
-            onDismissRequest = { accountForWardrobe = null },
-            onSaved = { updated ->
-                accountForWardrobe = null
-                leftPlayerSkin.loadAccount(updated)
-            }
-        )
     }
 
     // =============================================================
@@ -702,16 +614,6 @@ fun AccountsScreen(
                 }
             }
         }
-    }
-
-    if (showPremiumDialog) {
-        NuxPremiumDialog(
-            initialPrompt = premiumInitialPrompt,
-            onDismissRequest = {
-                showPremiumDialog = false
-                premiumInitialPrompt = null
-            }
-        )
     }
 }
 

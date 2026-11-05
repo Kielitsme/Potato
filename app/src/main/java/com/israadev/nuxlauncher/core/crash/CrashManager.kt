@@ -216,14 +216,14 @@ object CrashManager {
             val launcherCrashFile = File(filesDir, "launcher-crash.txt")
             val stackTrace = android.util.Log.getStackTraceString(throwable)
             launcherCrashFile.writeText(
-                "=== NUX Launcher Crash Report ===\n" +
+                "=== LowSpec Launcher Crash Report ===\n" +
                 "Time: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date())}\n" +
                 "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE})\n\n" +
                 stackTrace
             )
 
             val crashInfo = GameCrashInfo(
-                instanceName = "NUX Launcher",
+                instanceName = "LowSpec Launcher",
                 mcVersion = "App",
                 exitCode = -1,
                 isSignal = false,

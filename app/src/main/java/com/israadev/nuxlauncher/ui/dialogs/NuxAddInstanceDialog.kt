@@ -75,10 +75,7 @@ fun NuxAddInstanceDialog(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(VersionCategory.RELEASE) }
 
-    var showPremiumDialog by remember { mutableStateOf(false) }
-    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
 
-    val launcherUser by com.israadev.nuxlauncher.core.account.AccountManager.launcherUser.collectAsState()
     val langVersion by NuxLanguageManager.languageVersion.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -602,12 +599,7 @@ fun NuxAddInstanceDialog(
                                             .background(pillBg)
                                             .border(1.dp, pillBorder, RoundedCornerShape(6.dp))
                                             .clickable {
-                                                if (category != VersionCategory.RELEASE && launcherUser?.isActivated != true) {
-                                                    premiumInitialPrompt = "Access to Snapshot and Experimental builds (Beta & Alpha) is exclusively available for NUX Premium members. Free users can play all stable Release versions."
-                                                    showPremiumDialog = true
-                                                } else {
-                                                    selectedCategory = category
-                                                }
+                                                selectedCategory = category
                                             }
                                             .padding(horizontal = 7.dp, vertical = 3.5.dp)
                                     ) {
@@ -825,15 +817,5 @@ fun NuxAddInstanceDialog(
                 }
             }
         }
-    }
-
-    if (showPremiumDialog) {
-        NuxPremiumDialog(
-            initialPrompt = premiumInitialPrompt,
-            onDismissRequest = {
-                showPremiumDialog = false
-                premiumInitialPrompt = null
-            }
-        )
     }
 }

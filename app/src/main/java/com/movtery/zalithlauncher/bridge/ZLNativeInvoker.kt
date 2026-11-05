@@ -70,8 +70,8 @@ object ZLNativeInvoker {
                 try {
                     val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                     val clip = when (mimeType) {
-                        "text/html" -> ClipData.newHtmlText("NuxLauncher", data, data)
-                        else -> ClipData.newPlainText("NuxLauncher", data)
+                        "text/html" -> ClipData.newHtmlText("LowSpec", data, data)
+                        else -> ClipData.newPlainText("LowSpec", data)
                     }
                     clipboard?.setPrimaryClip(clip)
                     Toast.makeText(ctx, "Error text copied to clipboard", Toast.LENGTH_SHORT).show()

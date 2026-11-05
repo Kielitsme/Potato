@@ -25,29 +25,7 @@ object SettingsManager {
                 val json = file.readText()
                 val loaded = gson.fromJson(json, LauncherSettings::class.java)
                 if (loaded != null) {
-                    val prefs = context.getSharedPreferences("nux_settings_mig", Context.MODE_PRIVATE)
-                    val migratedAutoAnalyze = prefs.getBoolean("migrated_ai_auto_analyze_default_off", false)
-                    val isDeprecatedModel = loaded.aiModel.contains("qwen3.8-27b", ignoreCase = true) ||
-                                            loaded.aiModel.contains("nemotron-3-ultra-550b", ignoreCase = true)
-
-                    var finalSettings = loaded
-                    var needsSave = false
-
-                    if (!migratedAutoAnalyze) {
-                        prefs.edit().putBoolean("migrated_ai_auto_analyze_default_off", true).apply()
-                        finalSettings = finalSettings.copy(aiAutoAnalyze = false)
-                        needsSave = true
-                    }
-
-                    if (isDeprecatedModel || finalSettings.aiModel.isBlank()) {
-                        finalSettings = finalSettings.copy(aiModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.DEFAULT_MODEL)
-                        needsSave = true
-                    }
-
-                    _settings.value = finalSettings
-                    if (needsSave) {
-                        save(context)
-                    }
+                    _settings.value = loaded
                     return
                 }
             } catch (e: Exception) {
@@ -55,18 +33,32 @@ object SettingsManager {
             }
         }
 
-        // Recommend default RAM based on device's capacity (safe default ~ 1/3 to 1/2 of RAM)
-        val totalRam = getTotalDeviceMemoryMb(context)
-        val defaultRam = when {
-            totalRam >= 12000 -> 4096
-            totalRam >= 8000 -> 3072
-            totalRam >= 6000 -> 2560
-            totalRam >= 4000 -> 2048
-            else -> 1280
-        }
-        val initialSettings = LauncherSettings(ramMb = defaultRam)
+        val initialSettings = defaultsFor(getTotalDeviceMemoryMb(context))
         _settings.value = initialSettings
         save(context)
+    }
+
+    /**
+     * Default per tingkat RAM perangkat. Perangkat low-end mendapat heap lebih kecil (menyisakan RAM untuk
+     * Android + driver GPU, yang berbagi memori dengan sistem) dan resolusi render lebih rendah
+     * (fill-rate GPU adalah bottleneck utama di GPU Mali/Adreno entry-level).
+     */
+    private fun defaultsFor(totalRamMb: Int): LauncherSettings {
+        val ramMb = when {
+            totalRamMb >= 12000 -> 4096
+            totalRamMb >= 8000 -> 3072
+            totalRamMb >= 6000 -> 2560
+            totalRamMb >= 4000 -> 2048
+            totalRamMb >= 3000 -> 1536
+            else -> 1024
+        }
+        val resolution = when {
+            totalRamMb >= 8000 -> 100
+            totalRamMb >= 6000 -> 85
+            totalRamMb >= 4000 -> 75
+            else -> 60
+        }
+        return LauncherSettings(ramMb = ramMb, resolutionRatio = resolution)
     }
 
     fun updateSettings(context: Context, newSettings: LauncherSettings) {
@@ -75,14 +67,7 @@ object SettingsManager {
     }
 
     fun resetToDefaults(context: Context) {
-        val totalRam = getTotalDeviceMemoryMb(context)
-        val defaultRam = when {
-            totalRam >= 8000 -> 3072
-            totalRam >= 4000 -> 2048
-            else -> 1280
-        }
-        val defaultSettings = LauncherSettings(ramMb = defaultRam)
-        _settings.value = defaultSettings
+        _settings.value = defaultsFor(getTotalDeviceMemoryMb(context))
         save(context)
     }
 

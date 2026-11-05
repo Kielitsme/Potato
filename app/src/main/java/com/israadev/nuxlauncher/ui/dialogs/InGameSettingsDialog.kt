@@ -32,9 +32,6 @@ import com.israadev.nuxlauncher.FpsMode
 import com.israadev.nuxlauncher.ui.control.MouseControlMode
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.movtery.inputmap.keycodes.LwjglGlfwKeycode
-import com.israadev.nuxlauncher.core.recorder.ScreenRecordConfig
-import com.israadev.nuxlauncher.core.recorder.ScreenResolution
-import com.israadev.nuxlauncher.core.recorder.ScreenRecordManager
 import com.israadev.nuxlauncher.core.account.AccountManager
 import com.israadev.nuxlauncher.core.lang.tr
 import kotlin.math.roundToInt
@@ -63,11 +60,6 @@ fun InGameSettingsDialog(
     onSendKeycode: (Int) -> Unit,
     onForceExitRequest: () -> Unit,
     onOpenCustomGui: () -> Unit = {},
-    isRecording: Boolean = false,
-    recordingDurationSeconds: Long = 0,
-    onRequestStartRecord: ((ScreenRecordConfig) -> Unit)? = null,
-    onStopRecord: (() -> Unit)? = null,
-    onOpenPremium: (() -> Unit)? = null,
     initialTab: Int = 0
 ) {
     if (!visible) return
@@ -228,8 +220,7 @@ fun InGameSettingsDialog(
                     val tabs = listOf(
                         tr("settings.tab_game"),
                         tr("controls.title"),
-                        tr("ingame.tab_shortcuts"),
-                        tr("recorder.title")
+                        tr("ingame.tab_shortcuts")
                     )
                     Row(
                         modifier = Modifier
@@ -717,24 +708,6 @@ fun InGameSettingsDialog(
                                     }
                                 }
                             }
-                            3 -> {
-                                // === TAB 3: SCREEN RECORDER [PREMIUM] ===
-                                InGameRecorderSection(
-                                    isRecording = isRecording,
-                                    recordingDurationSeconds = recordingDurationSeconds,
-                                    onRequestStartRecord = { cfg ->
-                                        onDismissRequest()
-                                        onRequestStartRecord?.invoke(cfg)
-                                    },
-                                    onStopRecord = {
-                                        onStopRecord?.invoke()
-                                    },
-                                    onOpenPremium = {
-                                        onDismissRequest()
-                                        onOpenPremium?.invoke()
-                                    }
-                                )
-                            }
                         }
                     }
                 }
@@ -806,233 +779,3 @@ private fun QuickKeyButton(
     }
 }
 
-
-@Composable
-private fun InGameRecorderSection(
-    isRecording: Boolean,
-    recordingDurationSeconds: Long,
-    onRequestStartRecord: (ScreenRecordConfig) -> Unit,
-    onStopRecord: () -> Unit,
-    onOpenPremium: () -> Unit
-) {
-    val isUserPremium = ScreenRecordManager.isUserPremium()
-    var selectedRes by remember { mutableStateOf(ScreenResolution.RES_720P) }
-    var selectedFps by remember { mutableIntStateOf(60) }
-    var recordAudio by remember { mutableStateOf(true) }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        if (isUserPremium) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0x33F59E0B),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        painter = androidx.compose.ui.res.painterResource(com.israadev.nuxlauncher.R.drawable.ic_vip_crown),
-                        contentDescription = null,
-                        tint = Color(0xFFFBBF24),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "NUX VIP SCREEN RECORDER ACTIVE",
-                        color = Color(0xFFFBBF24),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-            }
-        }
-
-        // Active Screen Recorder Controls
-        InGameSectionCard(title = "Recorder Status & Actions") {
-                if (isRecording) {
-                    val m = recordingDurationSeconds / 60
-                    val s = recordingDurationSeconds % 60
-                    val timeStr = "%02d:%02d".format(m, s)
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0x33EF4444), RoundedCornerShape(10.dp))
-                            .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(10.dp))
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(Color(0xFFEF4444), CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "RECORDING IN PROGRESS",
-                                color = Color(0xFFFCA5A5),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = timeStr,
-                            color = Color.White,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 24.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = onStopRecord,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFEF4444)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    painter = androidx.compose.ui.res.painterResource(com.israadev.nuxlauncher.R.drawable.ic_stop_square),
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(11.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = tr("recorder.stop"),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            val config = ScreenRecordConfig(
-                                resolution = selectedRes,
-                                frameRate = selectedFps,
-                                bitRate = selectedRes.defaultBitrate,
-                                recordAudio = recordAudio
-                            )
-                            onRequestStartRecord(config)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NuxColors.ForestGreen
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(vertical = 10.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                painter = androidx.compose.ui.res.painterResource(com.israadev.nuxlauncher.R.drawable.ic_record_dot),
-                                contentDescription = null,
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = tr("recorder.start"),
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (!isRecording) {
-                InGameSectionCard(title = tr("recorder.quality_title")) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Resolution selector
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(tr("recorder.resolution") + ":", color = Color(0xFF94A3B8), fontSize = 10.5.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(ScreenResolution.RES_720P, ScreenResolution.RES_1080P, ScreenResolution.RES_NATIVE).forEach { res ->
-                                    val isSel = selectedRes == res
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isSel) NuxColors.ForestGreen else Color(0x33FFFFFF),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) NuxColors.MintGreen else Color.Transparent),
-                                        modifier = Modifier.clickable { selectedRes = res }
-                                    ) {
-                                        Text(
-                                            text = res.label,
-                                            color = if (isSel) Color.White else Color(0xFF94A3B8),
-                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 9.5.sp,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // FPS selector
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(tr("recorder.framerate") + ":", color = Color(0xFF94A3B8), fontSize = 10.5.sp)
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(30, 60).forEach { fpsVal ->
-                                    val isSel = selectedFps == fpsVal
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isSel) NuxColors.ForestGreen else Color(0x33FFFFFF),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) NuxColors.MintGreen else Color.Transparent),
-                                        modifier = Modifier.clickable { selectedFps = fpsVal }
-                                    ) {
-                                        Text(
-                                            text = "$fpsVal FPS",
-                                            color = if (isSel) Color.White else Color(0xFF94A3B8),
-                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 9.5.sp,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Audio Toggle
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(tr("recorder.mic_audio"), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text(tr("recorder.mic_audio_desc"), color = Color(0xFF94A3B8), fontSize = 9.sp)
-                            }
-                            Switch(
-                                checked = recordAudio,
-                                onCheckedChange = { recordAudio = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = NuxColors.ForestGreen
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-    }
-}

@@ -63,23 +63,15 @@ import com.israadev.nuxlauncher.ui.dialogs.NuxEditInstanceDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxCrashDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxDeleteInstanceDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxDownloadProgressDialog
-import com.israadev.nuxlauncher.ui.dialogs.NuxUpdateDialog
-import com.israadev.nuxlauncher.core.update.AndroidUpdateInfo
-import com.israadev.nuxlauncher.core.update.UpdateManager
 import com.israadev.nuxlauncher.core.mods.NuxAddonImportManager
 import com.israadev.nuxlauncher.ui.dialogs.NuxAddonImportDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxAboutDialog
-import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
-import com.israadev.nuxlauncher.core.announcement.AnnouncementManager
-import com.israadev.nuxlauncher.core.announcement.NuxAnnouncement
-import com.israadev.nuxlauncher.ui.dialogs.NuxAnnouncementDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.resp
 import com.israadev.nuxlauncher.ui.theme.LocalNuxScale
 import com.israadev.nuxlauncher.core.lang.tr
 import com.israadev.nuxlauncher.core.lang.trStr
 import kotlinx.coroutines.launch
-import com.israadev.nuxlauncher.core.social.NuxSocialManager
 
 @Composable
 fun DashboardScreen() {
@@ -93,77 +85,18 @@ fun DashboardScreen() {
     val instances by InstanceManager.instances.collectAsState()
     val selectedInstance by InstanceManager.selectedInstance.collectAsState()
     val currentAccount by AccountManager.currentAccount.collectAsState()
-    val launcherUser by AccountManager.launcherUser.collectAsState()
     val launcherSettings by SettingsManager.settings.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditInstanceDialog by remember { mutableStateOf(false) }
     var instanceToEdit by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var instanceToDelete by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var updateDialogInfo by remember { mutableStateOf<AndroidUpdateInfo?>(null) }
-    var announcementDialogInfo by remember { mutableStateOf<NuxAnnouncement?>(null) }
-    var pendingAnnouncement by remember { mutableStateOf<NuxAnnouncement?>(null) }
-    var isUpdateCheckDone by remember { mutableStateOf(false) }
     var pendingLaunchInstance by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var unsupportedRendererInfo by remember { mutableStateOf<NuxRendererInfo?>(null) }
     var showAboutDialog by remember { mutableStateOf(false) }
-    var showPremiumDialog by remember { mutableStateOf(false) }
-    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
     val pendingImport by NuxAddonImportManager.pendingImport.collectAsState()
 
-    val handleRequestCreateInstance = {
-        if (instances.size >= 3 && launcherUser?.isActivated != true) {
-            premiumInitialPrompt = "Free accounts are limited to a maximum of 3 instances. Upgrade to NUX Premium to create unlimited instances!"
-            showPremiumDialog = true
-        } else {
-            showAddDialog = true
-        }
-    }
-
-    // Auto check update and announcement on launch
-    LaunchedEffect(Unit) {
-        // 0. Sinkronisasi status social & friends di background
-        launch {
-            try {
-                NuxSocialManager.startSync()
-            } catch (_: Exception) {}
-        }
-
-        // 1. Ambil announcement secara asynchronous di background
-        launch {
-            try {
-                val ann = AnnouncementManager.fetchAnnouncement()
-                if (ann != null && !AnnouncementManager.isDismissed(context, ann.id)) {
-                    pendingAnnouncement = ann
-                }
-            } catch (e: Exception) {
-                // Ignore announcement fetch failures
-            }
-        }
-
-        // 2. Periksa ketersediaan update launcher
-        try {
-            val result = UpdateManager.checkForUpdate(context)
-            result.onSuccess { info ->
-                if (info.isUpdateAvailable) {
-                    updateDialogInfo = info
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore update check failures
-        } finally {
-            isUpdateCheckDone = true
-        }
-    }
-
-    // Sequential Modal Coordinator: bila update check selesai dan TIDAK ADA update, segera tampilkan announcement
-    LaunchedEffect(isUpdateCheckDone, updateDialogInfo, pendingAnnouncement) {
-        if (isUpdateCheckDone && updateDialogInfo == null && pendingAnnouncement != null) {
-            announcementDialogInfo = pendingAnnouncement
-            pendingAnnouncement = null
-        }
-    }
+    val handleRequestCreateInstance = { showAddDialog = true }
 
     // Download progress state
     var isDownloading by remember { mutableStateOf(false) }
@@ -175,59 +108,6 @@ fun DashboardScreen() {
 
     var isVersionDropdownExpanded by remember { mutableStateOf(false) }
     var isAccountDropdownExpanded by remember { mutableStateOf(false) }
-
-    // Instant Background Video Animation Picker (zero preview, instant swap)
-    val videoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                try {
-                    val retriever = MediaMetadataRetriever()
-                    retriever.setDataSource(context, uri)
-                    val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    val durationMs = durationStr?.toLongOrNull() ?: 0L
-                    retriever.release()
-
-                    if (durationMs > 20_500L) {
-                        val seconds = (durationMs / 1000f).roundToInt()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Video duration is too long (${seconds}s)! Maximum is 20 seconds.", Toast.LENGTH_LONG).show()
-                        }
-                        return@launch
-                    }
-
-                    val destFile = File(context.filesDir, "hero_banner_${System.currentTimeMillis()}.mp4")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(destFile).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    // Delete old hero_banner files to save storage
-                    context.filesDir.listFiles()?.forEach { file ->
-                        if (file.name.startsWith("hero_banner") && file.absolutePath != destFile.absolutePath) {
-                            file.delete()
-                        }
-                    }
-
-                    val updated = launcherSettings.copy(
-                        heroAnimationEnabled = true,
-                        heroAnimationVideoPath = destFile.absolutePath
-                    )
-                    SettingsManager.updateSettings(context, updated)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Background animation updated successfully!", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Failed to process video: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-    }
 
     if (currentTab == "gui_editor") {
         CustomGuiEditorScreen(
@@ -249,7 +129,7 @@ fun DashboardScreen() {
                 NuxSidebar(
                     activeTab = currentTab,
                     onTabSelected = { tabId ->
-                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "mods" || tabId == "ai" || tabId == "friends") {
+                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "mods") {
                             currentTab = tabId
                         } else {
                             Toast.makeText(context, "${tabId.replaceFirstChar { it.uppercase() }} feature coming soon to mobile!", Toast.LENGTH_SHORT).show()
@@ -257,7 +137,6 @@ fun DashboardScreen() {
                     },
                     onOpenAbout = { showAboutDialog = true },
                     currentAccount = currentAccount,
-                    launcherUser = launcherUser,
                     modifier = Modifier
                         .width((64.dp).resp())
                         .fillMaxHeight()
@@ -277,44 +156,12 @@ fun DashboardScreen() {
                         .background(Color(0xFF09090B), mainCardShape)
                         .border(2.dp, Color(0xFF14171E), mainCardShape)
                 ) {
-                    val hasValidHeroVideo = launcherSettings.heroAnimationEnabled &&
-                            launcherSettings.heroAnimationVideoPath.isNotBlank() &&
-                            File(launcherSettings.heroAnimationVideoPath).exists()
-                    val isHomeTab = currentTab == "home"
-
-                    // --- SHARED VIDEO ANIMATION BACKGROUND FOR ALL TABS ---
+                    // Flat background: no bitmap, no blur, no video. Cheapest option for low-end GPUs/RAM.
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .then(if (!isHomeTab) Modifier.blur((18.dp).resp()) else Modifier)
-                    ) {
-                        if (hasValidHeroVideo) {
-                            key(launcherSettings.heroAnimationVideoPath) {
-                                HeroBannerVideoPlayer(
-                                    videoPath = launcherSettings.heroAnimationVideoPath,
-                                    rotationDegrees = launcherSettings.heroAnimationRotation,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        } else {
-                            Image(
-                                painter = painterResource(id = R.drawable.mc_hero_bg),
-                                contentDescription = "Minecraft Scenery",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                                alpha = if (isHomeTab) 0.45f else 0.25f
-                            )
-                        }
-                    }
-
-                    // Frosted dark overlay for non-home tabs (Accounts, Mods, AI, Settings)
-                    if (!isHomeTab) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xD90A0D14))
-                        )
-                    }
+                            .background(Brush.verticalGradient(listOf(Color(0xFF0B1410), Color(0xFF09090B))))
+                    )
 
                     if (currentTab == "accounts") {
                         AccountsScreen(
@@ -326,20 +173,10 @@ fun DashboardScreen() {
                             onNavigateBack = { currentTab = "home" },
                             modifier = Modifier.fillMaxSize()
                         )
-                    } else if (currentTab == "ai") {
-                        AIScreen(
-                            onNavigateBack = { currentTab = "home" },
-                            modifier = Modifier.fillMaxSize()
-                        )
                     } else if (currentTab == "settings") {
                         SettingsScreen(
                             onNavigateBack = { currentTab = "home" },
                             onOpenGuiEditor = { currentTab = "gui_editor" },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else if (currentTab == "friends") {
-                        FriendsScreen(
-                            onNavigateBack = { currentTab = "home" },
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
@@ -384,7 +221,7 @@ fun DashboardScreen() {
                             ) {
                                 // Top-Left: Account Switcher Pill [ (V) Username ˅ ]
                                 val accounts by AccountManager.accounts.collectAsState()
-                                val activeUsername = currentAccount?.username ?: launcherUser?.username ?: tr("dashboard.select_account")
+                                val activeUsername = currentAccount?.username ?: tr("dashboard.select_account")
                                 val initialLetter = activeUsername.firstOrNull()?.uppercase() ?: "U"
 
                                 Box {
@@ -410,7 +247,7 @@ fun DashboardScreen() {
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
                                     ) {
-                                        val photo = launcherUser?.photoURL ?: currentAccount?.photoUrl
+                                        val photo = currentAccount?.photoUrl
                                         if (!photo.isNullOrBlank()) {
                                             NuxNetworkImage(
                                                 model = photo,
@@ -570,73 +407,6 @@ fun DashboardScreen() {
                                         }
                                     }
 
-                                    // Button to rotate background video animation (0° -> 90° -> 180° -> 270°)
-                                    val rotateBtnShape = RoundedCornerShape((12.dp).resp())
-                                    Box(
-                                        modifier = Modifier
-                                            .size((32.dp).resp())
-                                            .clip(rotateBtnShape)
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
-                                                ),
-                                                rotateBtnShape
-                                            )
-                                            .border(
-                                                1.dp,
-                                                Brush.verticalGradient(
-                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
-                                                ),
-                                                rotateBtnShape
-                                            )
-                                            .clickable {
-                                                val nextRotation = (launcherSettings.heroAnimationRotation + 90) % 360
-                                                SettingsManager.updateSettings(
-                                                    context,
-                                                    launcherSettings.copy(heroAnimationRotation = nextRotation)
-                                                )
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Outlined.RotateRight,
-                                            contentDescription = tr("dashboard.rotate_video"),
-                                            tint = Color.White,
-                                            modifier = Modifier.size((17.dp).resp())
-                                        )
-                                    }
-
-                                    // Button to change background animation instantly
-                                    val imgBtnShape = RoundedCornerShape((12.dp).resp())
-                                    Box(
-                                        modifier = Modifier
-                                            .size((32.dp).resp())
-                                            .clip(imgBtnShape)
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
-                                                ),
-                                                imgBtnShape
-                                            )
-                                            .border(
-                                                1.dp,
-                                                Brush.verticalGradient(
-                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
-                                                ),
-                                                imgBtnShape
-                                            )
-                                            .clickable {
-                                                videoPickerLauncher.launch("video/*")
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Image,
-                                            contentDescription = tr("dashboard.change_video"),
-                                            tint = Color.White,
-                                            modifier = Modifier.size((17.dp).resp())
-                                        )
-                                    }
                                 }
                             }
 
@@ -1019,16 +789,6 @@ fun DashboardScreen() {
                     }
                 }
             }
-
-            // Floating Voice Bar
-            if (currentTab != "friends") {
-                FloatingVoiceBar(
-                    onOpenVoiceRoom = { currentTab = "friends" },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = (14.dp).resp(), end = (18.dp).resp())
-                )
-            }
         }
 
         // Add Instance Dialog
@@ -1088,33 +848,6 @@ fun DashboardScreen() {
             )
         }
 
-        // Launcher Update Dialog
-        updateDialogInfo?.let { info ->
-            NuxUpdateDialog(
-                updateInfo = info,
-                onDismiss = {
-                    updateDialogInfo = null
-                    // Sequential: setelah user menutup/menolak update, tampilkan announcement jika ada
-                    pendingAnnouncement?.let { ann ->
-                        announcementDialogInfo = ann
-                        pendingAnnouncement = null
-                    }
-                }
-            )
-        }
-
-        // Launcher Announcement Dialog (Anti-Bentrok: hanya tampil jika tidak ada update dialog yang aktif)
-        if (updateDialogInfo == null) {
-            announcementDialogInfo?.let { ann ->
-                NuxAnnouncementDialog(
-                    announcement = ann,
-                    onDismiss = {
-                        announcementDialogInfo = null
-                    }
-                )
-            }
-        }
-
         // Unsupported Renderer Warning Dialog (Persis seperti Zalith)
         val warnRenderer = unsupportedRendererInfo
         val launchInst = pendingLaunchInstance
@@ -1166,16 +899,6 @@ fun DashboardScreen() {
             )
         }
 
-        // NUX Premium & Showcase Dialog (Fitur 1 - 7 Eksklusif)
-        if (showPremiumDialog) {
-            NuxPremiumDialog(
-                initialPrompt = premiumInitialPrompt,
-                onDismissRequest = {
-                    showPremiumDialog = false
-                    premiumInitialPrompt = null
-                }
-            )
-        }
     }
 }
 

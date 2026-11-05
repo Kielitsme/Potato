@@ -22,27 +22,7 @@ data class LauncherSettings(
     val resolutionRatio: Int = 100, // 50% - 125%
     val autoOptimizeMinecraft: Boolean = true,
     val sustainedPerformanceMode: Boolean = false,
-    val selectedRenderer: String = "auto", // "auto", "krypton", "mobileglues", "gl4es", "zink", "freedreno", "virgl", "panfrost"
-    val vulkanDriver: String = "auto", // "auto", "system", "turnip", etc.
-    val graphicsApi: String = "DEFAULT", // "DEFAULT", "OPENGL", "VULKAN"
-    val zinkPreferSystemDriver: Boolean = false,
-    val vsyncInZink: Boolean = false,
-
-    // Hero Banner Animation (Video MP4)
-    val heroAnimationEnabled: Boolean = false,
-    val heroAnimationVideoPath: String = "",
-    val heroAnimationRotation: Int = 0, // 0, 90, 180, 270
-
-    // AI Crash Analytics (OpenRouter AI)
-    val aiAutoAnalyze: Boolean = false,
-    val aiApiKey: String = "",
-    val aiModel: String = "",
-
-    // VIP Screen Recorder
-    val recorderResolution: String = "720p", // "720p", "1080p", "native"
-    val recorderFps: Int = 60, // 30, 60
-    val recorderBitrateMbps: Int = 8, // 6, 8, 12, 16
-    val recorderAudioEnabled: Boolean = true,
+    val selectedRenderer: String = "auto", // "auto", "krypton" (GLES3 / MC 1.17+), "gl4es" (GLES2 / legacy)
 
     // Language / Localization
     val language: String = "id-ID"

@@ -60,57 +60,6 @@ fun NuxCrashDialog(
     var isUploading by remember { mutableStateOf(false) }
     var uploadSuccessUrl by remember { mutableStateOf<String?>(null) }
 
-    val settings by com.israadev.nuxlauncher.core.settings.SettingsManager.settings.collectAsState()
-    var aiState by remember { mutableStateOf<com.israadev.nuxlauncher.core.crash.AIStreamState>(com.israadev.nuxlauncher.core.crash.AIStreamState.Idle) }
-    var rightViewMode by remember { mutableStateOf("ai") } // "ai" or "raw"
-    val isAutoAnalyze = settings.aiAutoAnalyze
-
-    var remainingQuota by remember {
-        mutableStateOf(com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings))
-    }
-
-    LaunchedEffect(Unit) {
-        val synced = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.syncQuotaFromDatabase(context, settings)
-        remainingQuota = synced
-    }
-
-    LaunchedEffect(settings.aiApiKey) {
-        remainingQuota = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings)
-    }
-
-    fun runAiAnalysis() {
-        rightViewMode = "ai"
-        if (!com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.hasQuota(context, settings)) {
-            aiState = com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded
-            return
-        }
-        coroutineScope.launch {
-            com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.analyzeCrashStreaming(context, crashInfo, settings).collect { state ->
-                aiState = state
-                if (state is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting ||
-                    state is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming ||
-                    state is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed
-                ) {
-                    remainingQuota = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings)
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(crashInfo, isAutoAnalyze) {
-        if (isAutoAnalyze) {
-            runAiAnalysis()
-        }
-    }
-
-    var isCursorBlinkVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(500)
-            isCursorBlinkVisible = !isCursorBlinkVisible
-        }
-    }
-
     val logFile = remember(crashInfo.fullLogPath) {
         if (crashInfo.fullLogPath.isNotBlank()) File(crashInfo.fullLogPath)
         else File(context.filesDir, "latestlog.txt")
@@ -273,7 +222,7 @@ fun NuxCrashDialog(
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = if (crashInfo.isLauncherCrash) "NUX Launcher Android Engine" else "${crashInfo.instanceName} (MC ${crashInfo.mcVersion})",
+                                        text = if (crashInfo.isLauncherCrash) "LowSpec Launcher Android Engine" else "${crashInfo.instanceName} (MC ${crashInfo.mcVersion})",
                                         color = Color.White,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 12.5.sp
@@ -563,36 +512,18 @@ fun NuxCrashDialog(
                     }
 
                     // ==========================================
-                    // RIGHT COLUMN: AI Crash Analyst (Realtime Streaming)
+                    // RIGHT COLUMN: Raw crash log
                     // ==========================================
-                    val effectiveModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.getEffectiveModel(settings)
-                    val activeAiText = when (val s = aiState) {
-                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> s.fullText
-                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> s.fullText
-                        else -> ""
-                    }
-
                     Box(
                         modifier = Modifier
                             .weight(1.2f)
                             .fillMaxHeight()
                             .clip(cardShape)
                             .background(Color(0xFF080B11))
-                            .border(
-                                1.dp,
-                                Brush.linearGradient(
-                                    listOf(
-                                        Color(0x3310B981),
-                                        Color(0x2238BDF8),
-                                        Color(0x1410B981)
-                                    )
-                                ),
-                                cardShape
-                            )
+                            .border(1.dp, Color(0x1AFFFFFF), cardShape)
                             .padding(8.dp)
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // Header Bar with Dots, AI Badge & Controls
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -600,137 +531,37 @@ fun NuxCrashDialog(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                ) {
-                                    Box(modifier = Modifier.size(7.dp).background(Color(0xFFEF4444), CircleShape))
-                                    Box(modifier = Modifier.size(7.dp).background(Color(0xFFF59E0B), CircleShape))
-                                    Box(modifier = Modifier.size(7.dp).background(Color(0xFF10B981), CircleShape))
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "CRASH LOG",
+                                    color = Color(0xFF94A3B8),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 0.8.sp
+                                )
 
-                                    Text(
-                                        text = "AI CRASH ANALYST",
-                                        color = Color(0xFF38BDF8),
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 9.sp,
-                                        letterSpacing = 0.8.sp
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF1E293B))
+                                        .clickable {
+                                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            cm.setPrimaryClip(ClipData.newPlainText("Crash Log", crashInfo.logSnippet))
+                                            Toast.makeText(context, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy",
+                                        tint = Color(0xFFA1A1AA),
+                                        modifier = Modifier.size(11.dp)
                                     )
-
-                                    // Status Pill
-                                    val (badgeText, badgeBg, badgeColor) = when (aiState) {
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Idle -> Triple("STANDBY", Color(0x2294A3B8), Color(0xFF94A3B8))
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting -> Triple("CONNECTING...", Color(0x33F59E0B), Color(0xFFFBBF24))
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> Triple("LIVE STREAMING", Color(0x3310B981), Color(0xFF34D399))
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> Triple("SELESAI", Color(0x2610B981), Color(0xFF4ADE80))
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Error -> Triple("ERROR", Color(0x33EF4444), Color(0xFFF87171))
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded -> Triple("LIMIT HABIS", Color(0x33F43F5E), Color(0xFFF43F5E))
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(badgeBg)
-                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                    ) {
-                                        Text(
-                                            text = badgeText,
-                                            color = badgeColor,
-                                            fontSize = 7.5.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-
-                                    // Quota Badge
-                                    val quotaText = if (remainingQuota < 0) "UNLIMITED" else "$remainingQuota/5"
-                                    val quotaColor = when {
-                                        remainingQuota < 0 -> Color(0xFF38BDF8)
-                                        remainingQuota > 1 -> Color(0xFF10B981)
-                                        remainingQuota == 1 -> Color(0xFFFBBF24)
-                                        else -> Color(0xFFF43F5E)
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(quotaColor.copy(alpha = 0.15f))
-                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                    ) {
-                                        Text(
-                                            text = "QUOTA: $quotaText",
-                                            color = quotaColor,
-                                            fontSize = 7.5.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                }
-
-                                // Quick Actions (Toggle Raw Log, Retry, Copy)
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    // Toggle Raw Log
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFF1E293B))
-                                            .clickable {
-                                                rightViewMode = if (rightViewMode == "ai") "raw" else "ai"
-                                            }
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = if (rightViewMode == "ai") "RAW LOG" else "AI ANALYSIS",
-                                            color = if (rightViewMode == "ai") Color(0xFF94A3B8) else Color(0xFF38BDF8),
-                                            fontSize = 8.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    // Refresh / Retry AI
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFF1E293B))
-                                            .clickable { runAiAnalysis() },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Refresh,
-                                            contentDescription = "Re-analyze",
-                                            tint = Color(0xFF38BDF8),
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                    }
-
-                                    // Copy AI Analysis / Log
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFF1E293B))
-                                            .clickable {
-                                                val textToCopy = if (rightViewMode == "ai" && activeAiText.isNotBlank()) activeAiText else crashInfo.logSnippet
-                                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                cm.setPrimaryClip(ClipData.newPlainText("Crash Analysis", textToCopy))
-                                                Toast.makeText(context, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ContentCopy,
-                                            contentDescription = "Copy",
-                                            tint = Color(0xFFA1A1AA),
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                    }
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            // Content Box
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -740,338 +571,19 @@ fun NuxCrashDialog(
                                     .border(1.dp, Color(0x1AFFFFFF), innerShape)
                                     .padding(8.dp)
                             ) {
-                                if (rightViewMode == "raw") {
-                                    // View Raw Terminal Log
-                                    val verticalScroll = rememberScrollState()
-                                    val horizontalScroll = rememberScrollState()
-                                    Text(
-                                        text = crashInfo.logSnippet,
-                                        color = Color(0xFFCBD5E1),
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 9.5.sp,
-                                        lineHeight = 13.5.sp,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .verticalScroll(verticalScroll)
-                                            .horizontalScroll(horizontalScroll)
-                                    )
-                                } else {
-                                    // View AI Analysis
-                                    when (val state = aiState) {
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Idle -> {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.Center,
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(36.dp)
-                                                        .clip(CircleShape)
-                                                        .background(if (remainingQuota == 0) Color(0x22F43F5E) else Color(0x2210B981))
-                                                        .border(1.dp, if (remainingQuota == 0) Color(0x44F43F5E) else Color(0x4410B981), CircleShape),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(if (remainingQuota == 0) "⏱️" else "⚡", fontSize = 16.sp)
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = if (remainingQuota == 0) "DAILY AI QUOTA EXCEEDED" else "AUTOMATED CRASH DIAGNOSIS",
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 11.sp,
-                                                    color = Color.White
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = if (remainingQuota == 0)
-                                                        "Daily 5-use AI limit reached. Quota resets tomorrow or copy the log to our Discord community."
-                                                    else
-                                                        "AI will analyze game error snippets to identify root causes and immediate solutions.",
-                                                    color = Color(0xFF94A3B8),
-                                                    fontSize = 9.sp,
-                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                    lineHeight = 12.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                NuxButton(
-                                                    onClick = { runAiAnalysis() },
-                                                    backgroundColor = if (remainingQuota == 0) Color(0xFFF43F5E) else Color(0xFF10B981),
-                                                    contentColor = if (remainingQuota == 0) Color.White else Color.Black,
-                                                    cornerRadius = 6.dp,
-                                                    modifier = Modifier.height(30.dp)
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                    ) {
-                                                        Text(if (remainingQuota == 0) "⚠️" else "✨", fontSize = 10.sp)
-                                                        Text(
-                                                            text = if (remainingQuota == 0) "VIEW SOLUTIONS & DISCORD TICKET" else "ANALYZE WITH AI",
-                                                            fontWeight = FontWeight.Black,
-                                                            fontSize = 9.sp
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting -> {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .padding(16.dp),
-                                                verticalArrangement = Arrangement.Center,
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                    color = Color(0xFF38BDF8),
-                                                    strokeWidth = 2.dp
-                                                )
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                Text(
-                                                    text = "AI is analyzing crash logs...",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 10.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(3.dp))
-                                                Text(
-                                                    text = "Parsing error stack trace and instance metadata ($effectiveModel)",
-                                                    color = Color(0xFF64748B),
-                                                    fontSize = 8.5.sp
-                                                )
-                                            }
-                                        }
-
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> {
-                                            val verticalScroll = rememberScrollState()
-                                            LaunchedEffect(state.fullText) {
-                                                verticalScroll.animateScrollTo(verticalScroll.maxValue)
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .verticalScroll(verticalScroll)
-                                            ) {
-                                                NuxMarkdownView(
-                                                    markdownText = state.fullText,
-                                                    isStreaming = true,
-                                                    showCursor = isCursorBlinkVisible
-                                                )
-                                            }
-                                        }
-
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> {
-                                            val verticalScroll = rememberScrollState()
-                                            Column(modifier = Modifier.fillMaxSize()) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .weight(1f)
-                                                        .verticalScroll(verticalScroll)
-                                                ) {
-                                                    NuxMarkdownView(
-                                                        markdownText = state.fullText,
-                                                        isStreaming = false,
-                                                        showCursor = false
-                                                    )
-                                                }
-
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = "• Model: $effectiveModel",
-                                                        fontSize = 8.sp,
-                                                        color = Color(0xFF64748B)
-                                                    )
-                                                    Text(
-                                                        text = "Analysis Complete ✓",
-                                                        fontSize = 8.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFF10B981)
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Error -> {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.Center,
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(32.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color(0x33EF4444)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Icon(painter = androidx.compose.ui.res.painterResource(com.israadev.nuxlauncher.R.drawable.ic_warning_triangle), contentDescription = null, tint = Color(0xFFFBBF24), modifier = Modifier.size(16.dp))
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = "Failed to Analyze Log",
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 11.sp,
-                                                    color = Color(0xFFF87171)
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = state.errorMessage,
-                                                    color = Color(0xFFCBD5E1),
-                                                    fontSize = 8.5.sp,
-                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                    lineHeight = 11.5.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                NuxButton(
-                                                    onClick = { runAiAnalysis() },
-                                                    backgroundColor = Color(0xFF334155),
-                                                    contentColor = Color.White,
-                                                    cornerRadius = 6.dp,
-                                                    modifier = Modifier.height(28.dp)
-                                                ) {
-                                                    Text(tr("dialogs.btn_try_again"), fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
-                                                }
-                                            }
-                                        }
-
-                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded -> {
-                                            val verticalScroll = rememberScrollState()
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .verticalScroll(verticalScroll)
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.Center,
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(36.dp)
-                                                        .clip(CircleShape)
-                                                        .background(Color(0x22F43F5E))
-                                                        .border(1.dp, Color(0x55F43F5E), CircleShape),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text("⏱️", fontSize = 16.sp)
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = tr("dialogs.quota_reached_title"),
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 11.sp,
-                                                    color = Color(0xFFF43F5E),
-                                                    letterSpacing = 0.5.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "The daily free AI analysis limit is 5 times per day. Your quota will automatically reset tomorrow.",
-                                                    color = Color(0xFFCBD5E1),
-                                                    fontSize = 9.sp,
-                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                    lineHeight = 12.5.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color(0xFF0F172A))
-                                                        .border(1.dp, Color(0x3338BDF8), RoundedCornerShape(8.dp))
-                                                        .padding(10.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "Please tap COPY LOG below, then open a support ticket in our official Discord server so our team or community can assist you.",
-                                                        color = Color(0xFF93C5FD),
-                                                        fontSize = 8.5.sp,
-                                                        lineHeight = 12.sp,
-                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.height(12.dp))
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    // Tombol Salin Log
-                                                    NuxButton(
-                                                        onClick = {
-                                                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                            val textToCopy = if (crashInfo.fullLogPath.isNotBlank() && logFile.exists()) {
-                                                                try { logFile.readText() } catch (_: Exception) { crashInfo.logSnippet }
-                                                            } else {
-                                                                crashInfo.logSnippet
-                                                            }
-                                                            cm.setPrimaryClip(ClipData.newPlainText("Crash Log", textToCopy))
-                                                            Toast.makeText(context, "Crash log copied to clipboard!", Toast.LENGTH_SHORT).show()
-                                                        },
-                                                        backgroundColor = Color(0xFF334155),
-                                                        contentColor = Color.White,
-                                                        cornerRadius = 6.dp,
-                                                        modifier = Modifier.height(30.dp)
-                                                    ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.ContentCopy,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(11.dp),
-                                                                tint = Color.White
-                                                            )
-                                                            Text(tr("dialogs.btn_copy_logs"), fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
-                                                        }
-                                                    }
-
-                                                    // Tombol Open Ticket Discord
-                                                    NuxButton(
-                                                        onClick = {
-                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.gg/UW4wBQg6X5"))
-                                                            context.startActivity(intent)
-                                                        },
-                                                        backgroundColor = Color(0xFF5865F2),
-                                                        contentColor = Color.White,
-                                                        cornerRadius = 6.dp,
-                                                        modifier = Modifier.height(30.dp)
-                                                    ) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Default.OpenInNew,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(11.dp),
-                                                                tint = Color.White
-                                                            )
-                                                            Text(tr("dialogs.btn_discord_ticket"), fontWeight = FontWeight.Black, fontSize = 8.5.sp)
-                                                        }
-                                                    }
-                                                }
-
-                                                Spacer(modifier = Modifier.height(10.dp))
-                                                Text(
-                                                    text = "Tip: You can configure a personal API Key (OpenRouter / Gemini) in Settings > AI Integration for unlimited usage.",
-                                                    fontSize = 7.5.sp,
-                                                    color = Color(0xFF64748B),
-                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                                val verticalScroll = rememberScrollState()
+                                val horizontalScroll = rememberScrollState()
+                                Text(
+                                    text = crashInfo.logSnippet,
+                                    color = Color(0xFFCBD5E1),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 9.5.sp,
+                                    lineHeight = 13.5.sp,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(verticalScroll)
+                                        .horizontalScroll(horizontalScroll)
+                                )
                             }
                         }
                     }
